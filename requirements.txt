@@ -19,3 +19,6 @@ lime==0.2.0.1
 streamlit==1.39.0
 requests==2.32.3
 plotly==5.24.1
+
+# LLM Integration for comparison
+google-generativeai==0.8.3
