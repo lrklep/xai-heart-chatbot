@@ -22,3 +22,4 @@ plotly==5.24.1
 
 # LLM Integration for comparison
 google-generativeai==0.8.3
+# Note: Upgrade to >=0.8.0 recommended for latest Gemini models

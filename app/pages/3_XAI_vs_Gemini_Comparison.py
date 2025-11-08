@@ -69,7 +69,27 @@ def setup_gemini():
 def get_gemini_prediction(patient_data):
     """Get prediction from Gemini"""
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Try different model names for compatibility with different SDK versions
+        model_names = [
+            'gemini-1.0-pro-latest',  # Latest stable model for older SDK
+            'gemini-1.0-pro',         # Stable model
+            'gemini-pro'              # Legacy name (may be deprecated)
+        ]
+        
+        model = None
+        last_error = None
+        
+        for model_name in model_names:
+            try:
+                model = genai.GenerativeModel(model_name)
+                # Test if model is accessible by attempting to use it
+                break
+            except Exception as e:
+                last_error = e
+                continue
+        
+        if model is None:
+            raise Exception(f"No compatible Gemini model found. Last error: {last_error}")
         
         prompt = f"""You are a medical AI assistant. Based on the following patient data, predict the risk of heart disease.
 
