@@ -69,7 +69,7 @@ def setup_gemini():
 def get_gemini_prediction(patient_data):
     """Get prediction from Gemini"""
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""You are a medical AI assistant. Based on the following patient data, predict the risk of heart disease.
 
