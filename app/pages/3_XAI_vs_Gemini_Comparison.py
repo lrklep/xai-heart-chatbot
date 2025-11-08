@@ -173,8 +173,7 @@ def get_xai_prediction(patient_data):
 gemini_available = setup_gemini()
 
 if not gemini_available:
-    st.warning("⚠️ Gemini API key not configured. Add GEMINI_API_KEY to Streamlit secrets or environment variables.")
-    st.info("👉 Get a free API key at: https://makersuite.google.com/app/apikey")
+    st.warning("⚠️ Gemini API key not configured. Contact administrator to enable Gemini comparison.")
     st.stop()
 
 # Input Section
@@ -407,22 +406,4 @@ with st.expander("🎯 Why Compare XAI with Gemini?"):
     - Conversational explanations
     
     **Best Practice:** Use XAI for predictions, LLMs for communication!
-    """)
-
-with st.expander("🔐 How to Add Gemini API Key"):
-    st.markdown("""
-    **For Streamlit Cloud:**
-    1. Go to your app settings
-    2. Navigate to "Secrets"
-    3. Add:
-    ```toml
-    GEMINI_API_KEY = "your-api-key-here"
-    ```
-    
-    **For Local Development:**
-    1. Create `.streamlit/secrets.toml`
-    2. Add the same content
-    
-    **Get Free API Key:**
-    👉 https://makersuite.google.com/app/apikey
     """)
