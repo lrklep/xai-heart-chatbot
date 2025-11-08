@@ -60,7 +60,14 @@ API_URL = os.environ.get('API_URL', 'http://localhost:8000')
 # Gemini API setup
 def setup_gemini():
     """Setup Gemini API"""
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+    # Check environment variable first, then secrets file
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        try:
+            api_key = st.secrets.get("GEMINI_API_KEY", "")
+        except (FileNotFoundError, KeyError):
+            pass
+    
     if api_key:
         genai.configure(api_key=api_key)
         return True
@@ -70,8 +77,7 @@ def get_gemini_prediction(patient_data):
     """Get prediction from Gemini"""
     try:
         # Try different model names for compatibility with different SDK versions
-        model_names = [
-            'gemini-1.5-flash',       # Latest fast model (SDK 0.8.5+)
+        model_names = [      # Latest fast model (SDK 0.8.5+)
             'gemini-1.0-pro',         # Stable model
             'gemini-pro'              # Legacy name (may be deprecated)
         ]
