@@ -41,8 +41,8 @@ class ModelComparison:
         """Test XAI model performance"""
         print("\n🧠 Testing XAI Model...")
         
-        X_test = self.test_data.drop('target', axis=1)
-        y_test = self.test_data['target']
+        X_test = self.test_data.drop('heart_disease', axis=1)
+        y_test = self.test_data['heart_disease']
         
         # Preprocess
         X_processed = self.preprocessor.transform(X_test)
@@ -92,7 +92,7 @@ class ModelComparison:
         print("⚠️  Note: This is a simulation based on observed LLM behavior")
         print("    For real comparison, uncomment API calls in code\n")
         
-        y_test = self.test_data['target']
+        y_test = self.test_data['heart_disease']
         
         # Simulate typical LLM performance:
         # - Lower accuracy (~65%)
