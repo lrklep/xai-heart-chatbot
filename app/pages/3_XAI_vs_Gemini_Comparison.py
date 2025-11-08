@@ -76,18 +76,24 @@ def setup_gemini():
 def get_gemini_prediction(patient_data):
     """Get prediction from Gemini"""
     try:
-        # Try different model names for compatibility with different SDK versions
-        model_names = [      # Latest fast model (SDK 0.8.5+)
-            'gemini-1.0-pro',         # Stable model
-            'gemini-pro'              # Legacy name (may be deprecated)
+        # Try different model names - models/ prefix required for some SDK versions
+        model_names = [
+            'models/gemini-1.5-flash',     # Latest with full path
+            'gemini-1.5-flash',            # Latest without prefix
+            'models/gemini-1.5-pro',       # Pro with full path
+            'gemini-1.5-pro',              # Pro without prefix
+            'models/gemini-pro',           # Legacy with full path
+            'gemini-pro'                   # Legacy without prefix
         ]
         
         model = None
         last_error = None
+        successful_model_name = None
         
         for model_name in model_names:
             try:
                 model = genai.GenerativeModel(model_name)
+                successful_model_name = model_name
                 # Test if model is accessible by attempting to use it
                 break
             except Exception as e:
