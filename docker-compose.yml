@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    container_name: xai-heart-api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+  app:
+    image: python:3.11-slim
+    container_name: xai-heart-app
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    command: >-
+      sh -c "pip install --no-cache-dir -r requirements.txt && streamlit run app/streamlit_app.py --server.port=8501 --server.address=0.0.0.0"
