@@ -280,7 +280,7 @@ fig_gauge = go.Figure(go.Indicator(
    - `features.json` - Feature names
    - `metrics.json` - Performance metrics
    - `shap_explainer.joblib` - SHAP background (optional)
-
+ 
 ---
 
 ### Phase 2: Prediction (Real-time)
