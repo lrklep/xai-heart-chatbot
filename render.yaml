@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: xai-heart-api
+    env: python
+    region: oregon
+    plan: free
+    branch: master
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: uvicorn api.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
