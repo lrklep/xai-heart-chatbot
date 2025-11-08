@@ -138,17 +138,19 @@ def get_xai_prediction(patient_data):
         start_time = time.time()
         response = requests.post(
             f"{API_URL}/predict",
-            json=patient_data,
+            json={"payload": patient_data},  # API expects nested payload
             timeout=10
         )
         inference_time = (time.time() - start_time) * 1000
         
         if response.status_code == 200:
             result = response.json()
+            # Convert prediction to risk level
+            risk = "HIGH RISK" if result['prediction'] == 1 else "LOW RISK"
             return {
-                'prediction': result['prediction'],
+                'prediction': risk,
                 'confidence': result['probability'] * 100,
-                'explanation': f"Model uses {len(result.get('feature_importance', []))} clinical features with SHAP explainability",
+                'explanation': f"Model uses {len(result.get('features_used', []))} clinical features with SHAP explainability",
                 'inference_time': inference_time,
                 'shap_values': result.get('shap_values', {}),
                 'feature_importance': result.get('feature_importance', [])
@@ -157,7 +159,7 @@ def get_xai_prediction(patient_data):
             return {
                 'prediction': 'Error',
                 'confidence': 0,
-                'explanation': f'API Error: {response.status_code}',
+                'explanation': f'API Error: {response.status_code} - {response.text[:200]}',
                 'inference_time': inference_time
             }
     
@@ -173,8 +175,8 @@ def get_xai_prediction(patient_data):
 gemini_available = setup_gemini()
 
 if not gemini_available:
-    st.warning("⚠️ Gemini API key not configured. Contact administrator to enable Gemini comparison.")
-    st.stop()
+    st.info("ℹ️ Gemini comparison is currently unavailable. Showing XAI model predictions only.")
+    # Don't stop - allow XAI-only mode
 
 # Input Section
 st.header("📋 Patient Data Input")
@@ -250,8 +252,17 @@ if st.button("🚀 Run Comparison", type="primary", use_container_width=True):
     
     # Gemini Prediction
     with col_gemini:
-        with st.spinner("🤖 Querying Gemini..."):
-            gemini_result = get_gemini_prediction(patient_data)
+        if gemini_available:
+            with st.spinner("🤖 Querying Gemini..."):
+                gemini_result = get_gemini_prediction(patient_data)
+        else:
+            gemini_result = {
+                'prediction': 'Unavailable',
+                'confidence': 0,
+                'explanation': 'Gemini API is not configured. XAI model provides the medical prediction.',
+                'inference_time': 0,
+                'raw_response': ''
+            }
         
         st.markdown("### 🤖 Google Gemini")
         st.markdown('<div class="comparison-card">', unsafe_allow_html=True)
@@ -279,110 +290,120 @@ if st.button("🚀 Run Comparison", type="primary", use_container_width=True):
     
     # Performance Comparison
     st.divider()
-    st.header("⚡ Performance Metrics")
     
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric(
-            "Speed Winner",
-            "XAI" if xai_result['inference_time'] < gemini_result['inference_time'] else "Gemini",
-            delta=f"{abs(xai_result['inference_time'] - gemini_result['inference_time']):.0f}ms faster"
+    if gemini_available and gemini_result['prediction'] not in ['Error', 'Unavailable']:
+        st.header("⚡ Performance Metrics")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "Speed Winner",
+                "XAI" if xai_result['inference_time'] < gemini_result['inference_time'] else "Gemini",
+                delta=f"{abs(xai_result['inference_time'] - gemini_result['inference_time']):.0f}ms faster"
+            )
+        
+        with col2:
+            agree = (xai_result['prediction'] == gemini_result['prediction'])
+            st.metric(
+                "Agreement",
+                "✅ Both Agree" if agree else "❌ Disagree",
+                delta="Same prediction" if agree else "Different predictions"
+            )
+        
+        with col3:
+            avg_confidence = (xai_result['confidence'] + gemini_result['confidence']) / 2
+            st.metric(
+                "Avg Confidence",
+                f"{avg_confidence:.1f}%"
+            )
+        
+        # Speed Comparison Chart
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=['XAI Model', 'Gemini'],
+            y=[xai_result['inference_time'], gemini_result['inference_time']],
+            marker_color=['#667eea', '#f093fb'],
+            text=[f"{xai_result['inference_time']:.0f}ms", f"{gemini_result['inference_time']:.0f}ms"],
+            textposition='auto',
+        ))
+        fig.update_layout(
+            title="Inference Speed Comparison",
+            yaxis_title="Time (milliseconds)",
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            showlegend=False
         )
-    
-    with col2:
-        agree = (xai_result['prediction'] == gemini_result['prediction'])
-        st.metric(
-            "Agreement",
-            "✅ Both Agree" if agree else "❌ Disagree",
-            delta="Same prediction" if agree else "Different predictions"
-        )
-    
-    with col3:
-        avg_confidence = (xai_result['confidence'] + gemini_result['confidence']) / 2
-        st.metric(
-            "Avg Confidence",
-            f"{avg_confidence:.1f}%"
-        )
-    
-    # Speed Comparison Chart
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=['XAI Model', 'Gemini'],
-        y=[xai_result['inference_time'], gemini_result['inference_time']],
-        marker_color=['#667eea', '#f093fb'],
-        text=[f"{xai_result['inference_time']:.0f}ms", f"{gemini_result['inference_time']:.0f}ms"],
-        textposition='auto',
-    ))
-    fig.update_layout(
-        title="Inference Speed Comparison",
-        yaxis_title="Time (milliseconds)",
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white'),
-        showlegend=False
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.header("📊 XAI Model Performance")
+        st.success("✅ **XAI model prediction completed successfully!**")
+        st.info(f"⚡ Inference time: **{xai_result['inference_time']:.0f}ms**")
+        st.info(f"🎯 Confidence: **{xai_result['confidence']:.1f}%**")
+        if not gemini_available:
+            st.warning("💡 Gemini comparison is not available. Contact administrator to enable Gemini API for live comparisons.")
     
     # Key Differences
-    st.divider()
-    st.header("🔍 Key Differences")
-    
-    differences = pd.DataFrame({
-        'Feature': ['Explainability', 'Consistency', 'Cost', 'Privacy', 'Speed'],
-        'XAI Model': [
-            'SHAP + LIME (Quantitative)',
-            '100% (Deterministic)',
-            '$0.00001/prediction',
-            'On-premise (HIPAA)',
-            f'{xai_result["inference_time"]:.0f}ms'
-        ],
-        'Gemini': [
-            'Text explanation (Qualitative)',
-            '~60% (Non-deterministic)',
-            '$0.001/prediction',
-            'Cloud API',
-            f'{gemini_result["inference_time"]:.0f}ms'
-        ]
-    })
-    
-    st.dataframe(differences, use_container_width=True, hide_index=True)
-    
-    # Winner Summary
-    st.divider()
-    st.markdown("### 🏆 Summary")
-    
-    winner_points = {
-        'XAI': 0,
-        'Gemini': 0
-    }
-    
-    # Speed
-    if xai_result['inference_time'] < gemini_result['inference_time']:
+    if gemini_available and gemini_result['prediction'] not in ['Error', 'Unavailable']:
+        st.divider()
+        st.header("🔍 Key Differences")
+        
+        differences = pd.DataFrame({
+            'Feature': ['Explainability', 'Consistency', 'Cost', 'Privacy', 'Speed'],
+            'XAI Model': [
+                'SHAP + LIME (Quantitative)',
+                '100% (Deterministic)',
+                '$0.00001/prediction',
+                'On-premise (HIPAA)',
+                f'{xai_result["inference_time"]:.0f}ms'
+            ],
+            'Gemini': [
+                'Text explanation (Qualitative)',
+                '~60% (Non-deterministic)',
+                '$0.001/prediction',
+                'Cloud API',
+                f'{gemini_result["inference_time"]:.0f}ms'
+            ]
+        })
+        
+        st.dataframe(differences, use_container_width=True, hide_index=True)
+        
+        # Winner Summary
+        st.divider()
+        st.markdown("### 🏆 Summary")
+        
+        winner_points = {
+            'XAI': 0,
+            'Gemini': 0
+        }
+        
+        # Speed
+        if xai_result['inference_time'] < gemini_result['inference_time']:
+            winner_points['XAI'] += 1
+            st.success("✅ **Speed Winner**: XAI Model (Faster inference)")
+        else:
+            winner_points['Gemini'] += 1
+            st.success("✅ **Speed Winner**: Gemini (Faster inference)")
+        
+        # Explainability
+        st.success("✅ **Explainability Winner**: XAI Model (SHAP/LIME quantitative explanations)")
         winner_points['XAI'] += 1
-        st.success("✅ **Speed Winner**: XAI Model (Faster inference)")
-    else:
-        winner_points['Gemini'] += 1
-        st.success("✅ **Speed Winner**: Gemini (Faster inference)")
-    
-    # Explainability
-    st.success("✅ **Explainability Winner**: XAI Model (SHAP/LIME quantitative explanations)")
-    winner_points['XAI'] += 1
-    
-    # Cost
-    st.success("✅ **Cost Winner**: XAI Model (100x cheaper)")
-    winner_points['XAI'] += 1
-    
-    # Privacy
-    st.success("✅ **Privacy Winner**: XAI Model (On-premise, HIPAA compliant)")
-    winner_points['XAI'] += 1
-    
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; text-align: center; margin-top: 20px;">
-        <h2 style="color: white !important; margin: 0;">🏆 Overall Winner: XAI Model</h2>
-        <p style="color: white !important; margin: 10px 0 0 0;">Score: XAI {winner_points['XAI']} - Gemini {winner_points['Gemini']}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        
+        # Cost
+        st.success("✅ **Cost Winner**: XAI Model (100x cheaper)")
+        winner_points['XAI'] += 1
+        
+        # Privacy
+        st.success("✅ **Privacy Winner**: XAI Model (On-premise, HIPAA compliant)")
+        winner_points['XAI'] += 1
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; text-align: center; margin-top: 20px;">
+            <h2 style="color: white !important; margin: 0;">🏆 Overall Winner: XAI Model</h2>
+            <p style="color: white !important; margin: 10px 0 0 0;">Score: XAI {winner_points['XAI']} - Gemini {winner_points['Gemini']}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Information Section
 st.divider()
