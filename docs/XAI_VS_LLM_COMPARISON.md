@@ -1,5 +1,3 @@
-# 🔬 Proving XAI Superiority Over LLMs for Heart Disease Prediction
-
 ## Executive Summary
 
 Your XAI system has fundamental advantages over ChatGPT/LLMs for medical prediction:

@@ -78,12 +78,7 @@ def get_gemini_prediction(patient_data):
     try:
         # Try different model names - models/ prefix required for some SDK versions
         model_names = [
-            'models/gemini-1.5-flash',     # Latest with full path
-            'gemini-1.5-flash',            # Latest without prefix
-            'models/gemini-1.5-pro',       # Pro with full path
-            'gemini-1.5-pro',              # Pro without prefix
-            'models/gemini-pro',           # Legacy with full path
-            'gemini-pro'                   # Legacy without prefix
+            'models/gemini-2.5-flash',     # Latest with full path
         ]
         
         model = None
