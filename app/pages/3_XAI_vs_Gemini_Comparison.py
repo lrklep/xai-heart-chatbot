@@ -98,27 +98,27 @@ def get_gemini_prediction(patient_data):
         if model is None:
             raise Exception(f"No compatible Gemini model found. Last error: {last_error}")
         
-        prompt = f"""You are a medical AI assistant. Based on the following patient data, predict the risk of heart disease.
+        prompt = f"""You are a compassionate medical AI assistant helping assess heart disease risk. Based on the patient's health information below, provide a risk assessment.
 
-Patient Information:
-- Age: {patient_data['age']} years
+Patient's Health Profile:
+- Age: {patient_data['age']} years old
 - Sex: {'Male' if patient_data['sex'] == 1 else 'Female'}
-- BMI: {patient_data['bmi']}
-- Smoker: {'Yes' if patient_data['smoker'] == 1 else 'No'}
-- Diabetes: {'Yes' if patient_data['diabetes'] == 1 else 'No'}
-- Physical Activity: {'Yes' if patient_data['phys_activity'] == 1 else 'No'}
-- Sleep Hours: {patient_data['sleep_hours']} hours
-- General Health: {patient_data['gen_health']}/5
+- Body Mass Index (BMI): {patient_data['bmi']:.1f} {'(Healthy weight)' if 18.5 <= patient_data['bmi'] <= 24.9 else '(Outside healthy weight range)'}
+- Smoking status: {'Current/former smoker' if patient_data['smoker'] == 1 else 'Non-smoker'}
+- Diabetes: {'Diagnosed with diabetes' if patient_data['diabetes'] == 1 else 'No diabetes'}
+- Exercise habits: {'Exercises regularly' if patient_data['phys_activity'] == 1 else 'Minimal physical activity'}
+- Sleep: Gets about {patient_data['sleep_hours']} hours of sleep per night
+- Self-rated health: {['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][int(patient_data['gen_health'])-1]} (rated {patient_data['gen_health']}/5)
 
-Please provide:
-1. Risk prediction (HIGH RISK or LOW RISK)
-2. Confidence level (0-100%)
-3. Brief explanation (2-3 sentences)
+Please provide a patient-friendly assessment with:
+1. Overall risk level (HIGH RISK or LOW RISK for heart disease)
+2. Your confidence in this assessment (0-100%)
+3. A brief, compassionate explanation in plain language (2-3 sentences that a patient can understand)
 
 Format your response exactly as:
 RISK: [HIGH RISK or LOW RISK]
 CONFIDENCE: [number]%
-EXPLANATION: [your explanation]
+EXPLANATION: [your patient-friendly explanation]
 """
         
         start_time = time.time()
@@ -206,29 +206,48 @@ if not gemini_available:
     # Don't stop - allow XAI-only mode
 
 # Input Section
-st.header("📋 Patient Data Input")
+st.header("📋 Enter Your Health Information")
+st.caption("Fill in your basic health details below. All information is kept private and secure.")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    age = st.number_input("Age", min_value=18, max_value=120, value=50, key="comp_age")
+    st.subheader("👤 Basic Info")
+    age = st.number_input("Age (years)", min_value=18, max_value=120, value=50, key="comp_age",
+                          help="Your current age")
     sex = st.selectbox("Sex", options=[0, 1], format_func=lambda x: "Female" if x == 0 else "Male", key="comp_sex")
-    bmi = st.number_input("BMI", min_value=10.0, max_value=60.0, value=25.0, step=0.1, key="comp_bmi")
+    
+    # Height and Weight instead of BMI
+    height_cm = st.number_input("Height (cm)", min_value=100.0, max_value=250.0, value=170.0, step=1.0, key="comp_height",
+                                 help="Your height in centimeters")
+    weight_kg = st.number_input("Weight (kg)", min_value=30.0, max_value=300.0, value=70.0, step=0.5, key="comp_weight",
+                                 help="Your weight in kilograms")
+    
+    # Calculate BMI automatically
+    bmi = weight_kg / ((height_cm / 100) ** 2)
+    st.info(f"📊 Your BMI: **{bmi:.1f}** {'(Healthy)' if 18.5 <= bmi <= 24.9 else '(Outside healthy range)'}")
 
 with col2:
-    smoker = st.selectbox("Smoker", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_smoker")
-    diabetes = st.selectbox("Diabetes", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_diabetes")
-    phys_activity = st.selectbox("Physical Activity", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_phys")
+    st.subheader("🏥 Health Conditions")
+    smoker = st.selectbox("Do you smoke?", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_smoker",
+                          help="Current or former smoker")
+    diabetes = st.selectbox("Do you have diabetes?", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_diabetes",
+                           help="Diagnosed with Type 1 or Type 2 diabetes")
+    phys_activity = st.selectbox("Do you exercise regularly?", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes", key="comp_phys",
+                                help="At least 30 minutes of exercise, 3+ times per week")
 
 with col3:
-    sleep_hours = st.number_input("Sleep Hours", min_value=1.0, max_value=24.0, value=7.0, step=0.1, key="comp_sleep")
-    gen_health = st.slider("General Health", min_value=1, max_value=5, value=3, 
-                           help="1=Poor, 5=Excellent", key="comp_health")
+    st.subheader("💤 Lifestyle")
+    sleep_hours = st.number_input("Sleep hours per night", min_value=1.0, max_value=24.0, value=7.0, step=0.5, key="comp_sleep",
+                                  help="Average hours of sleep you get each night")
+    gen_health = st.slider("How would you rate your overall health?", min_value=1, max_value=5, value=3, key="comp_health",
+                           help="1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent")
+    st.caption("1 = Poor • 2 = Fair • 3 = Good • 4 = Very Good • 5 = Excellent")
 
 patient_data = {
     'age': age,
     'sex': sex,
-    'bmi': bmi,
+    'bmi': round(bmi, 2),
     'smoker': smoker,
     'diabetes': diabetes,
     'phys_activity': phys_activity,
