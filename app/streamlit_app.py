@@ -270,9 +270,9 @@ st.markdown("""
 # Header with branding
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
-    st.markdown("# 💙")
+    st.markdown("# ⚕️")
 with col_title:
-    st.title('Heart Risk Assessment System')
+    st.title('PANACEA XAI')
     st.markdown('🧠 **Powered by Explainable AI**')
 
 st.markdown('---')
@@ -284,6 +284,12 @@ if 'validation_errors' not in st.session_state:
     st.session_state.validation_errors = {}
 if 'mode' not in st.session_state:
     st.session_state.mode = 'form'  # 'form' or 'chat'
+if 'show_tips' not in st.session_state:
+    st.session_state.show_tips = True
+if 'unit_system' not in st.session_state:
+    st.session_state.unit_system = 'metric'  # 'metric' or 'imperial'
+if 'prediction_history' not in st.session_state:
+    st.session_state.prediction_history = []
 
 # Sidebar controls
 with st.sidebar:
@@ -299,31 +305,90 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Quick actions
-    if st.button('🔄 Start New Assessment', use_container_width=True, type='primary'):
-        st.session_state.payload = {}
-        st.session_state.validation_errors = {}
-        st.rerun()
+    # Unit system toggle
+    st.markdown("### ⚖️ Unit System")
+    unit_system = st.radio(
+        "Measurement Units",
+        ['Metric (kg, cm)', 'Imperial (lbs, ft/in)'],
+        horizontal=True,
+        help="Choose your preferred measurement system"
+    )
+    st.session_state.unit_system = 'metric' if 'Metric' in unit_system else 'imperial'
     
-    if st.button('📥 Load Sample Data', use_container_width=True):
-        st.session_state.payload = {
-            'age': 63,
-            'sex': 1,
-            'bmi': 28.5,
-            'smoker': 0,
-            'diabetes': 1,
-            'phys_activity': 1,
-            'sleep_hours': 7,
-            'gen_health': 3
-        }
+    st.markdown("---")
+    
+    # Quick sample profiles
+    st.markdown("### 👥 Sample Profiles")
+    sample_profiles = {
+        '🏃 Healthy Adult': {'age': 45, 'sex': 1, 'bmi': 23.5, 'smoker': 0, 'diabetes': 0, 'phys_activity': 1, 'sleep_hours': 8, 'gen_health': 4},
+        '⚠️ High Risk': {'age': 68, 'sex': 1, 'bmi': 32.5, 'smoker': 1, 'diabetes': 1, 'phys_activity': 0, 'sleep_hours': 5, 'gen_health': 2},
+        '💪 Athletic': {'age': 30, 'sex': 0, 'bmi': 21.0, 'smoker': 0, 'diabetes': 0, 'phys_activity': 1, 'sleep_hours': 8, 'gen_health': 5},
+        '🩺 Pre-diabetic': {'age': 55, 'sex': 0, 'bmi': 27.5, 'smoker': 0, 'diabetes': 1, 'phys_activity': 0, 'sleep_hours': 6, 'gen_health': 3}
+    }
+    
+    selected_profile = st.selectbox(
+        'Quick Fill',
+        ['Select a profile...'] + list(sample_profiles.keys()),
+        help="Load pre-configured patient profiles for quick testing"
+    )
+    
+    if selected_profile != 'Select a profile...' and st.button('Load Profile', use_container_width=True):
+        st.session_state.payload = sample_profiles[selected_profile].copy()
+        st.success(f"✅ Loaded: {selected_profile}")
         st.rerun()
     
     st.markdown("---")
     
-    # Progress indicator
+    # Quick actions
+    col_action1, col_action2 = st.columns(2)
+    with col_action1:
+        if st.button('🔄 Reset', use_container_width=True):
+            st.session_state.payload = {}
+            st.session_state.validation_errors = {}
+            st.rerun()
+    
+    with col_action2:
+        if st.button('� Random', use_container_width=True):
+            import random
+            st.session_state.payload = {
+                'age': random.randint(25, 80),
+                'sex': random.randint(0, 1),
+                'bmi': round(random.uniform(18.5, 35), 1),
+                'smoker': random.randint(0, 1),
+                'diabetes': random.randint(0, 1),
+                'phys_activity': random.randint(0, 1),
+                'sleep_hours': random.randint(5, 9),
+                'gen_health': random.randint(1, 5)
+            }
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Progress indicator with detailed stats
     progress = len(st.session_state.payload) / 8
     st.progress(progress)
     st.caption(f"📊 Progress: {len(st.session_state.payload)}/8 fields completed")
+    
+    if progress == 1.0:
+        st.success("✨ All fields complete! Ready to analyze")
+    elif progress > 0:
+        remaining = 8 - len(st.session_state.payload)
+        st.info(f"📝 {remaining} field{'s' if remaining > 1 else ''} remaining")
+    
+    st.markdown("---")
+    
+    # Settings
+    st.markdown("### ⚙️ Settings")
+    st.session_state.show_tips = st.checkbox("Show Health Tips", value=st.session_state.show_tips, help="Display educational tips throughout the form")
+    
+    # Prediction history
+    if st.session_state.prediction_history:
+        st.markdown("---")
+        st.markdown("### 📜 Recent Assessments")
+        st.caption(f"{len(st.session_state.prediction_history)} prediction(s) in history")
+        if st.button('🗑️ Clear History', use_container_width=True):
+            st.session_state.prediction_history = []
+            st.rerun()
     
     st.markdown("---")
 
@@ -472,8 +537,62 @@ FIELD_ORDER = ['age', 'sex', 'bmi', 'smoker', 'diabetes', 'phys_activity', 'slee
 # INTERACTIVE FORM MODE
 # ============================================================================
 if st.session_state.mode == 'form':
+    # Interactive header with animation
     st.markdown("## 📋 Patient Information Form")
     st.markdown("Please fill in all fields below. Real-time validation will help ensure accuracy.")
+    
+    # Show health tips banner if enabled
+    if st.session_state.show_tips:
+        with st.expander("💡 Quick Health Tips", expanded=False):
+            tip_cols = st.columns(3)
+            with tip_cols[0]:
+                st.markdown("### 🏃 Stay Active")
+                st.caption("150 min/week of moderate exercise reduces heart disease risk by 30-40%")
+            with tip_cols[1]:
+                st.markdown("### 🚭 Don't Smoke")
+                st.caption("Quitting smoking can reduce heart disease risk by 50% within 1 year")
+            with tip_cols[2]:
+                st.markdown("### 🥗 Eat Well")
+                st.caption("Mediterranean diet can reduce cardiovascular events by 30%")
+    
+    # BMI Calculator (outside form)
+    with st.expander("🧮 BMI Calculator - Calculate Before Filling Form", expanded=False):
+        calc_col1, calc_col2, calc_col3 = st.columns(3)
+        with calc_col1:
+            if st.session_state.unit_system == 'metric':
+                height_input = st.number_input("Height (cm)", min_value=100, max_value=250, value=170, key="calc_height")
+                weight_input = st.number_input("Weight (kg)", min_value=30, max_value=300, value=70, key="calc_weight")
+            else:
+                height_ft = st.number_input("Height (feet)", min_value=4, max_value=8, value=5, key="calc_height_ft")
+                height_in = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, key="calc_height_in")
+                weight_input = st.number_input("Weight (lbs)", min_value=70, max_value=600, value=154, key="calc_weight_lbs")
+        
+        with calc_col2:
+            st.markdown("### ")  # Spacing
+            if st.button("Calculate BMI", key="calc_bmi_btn", use_container_width=True):
+                if st.session_state.unit_system == 'metric':
+                    calculated_bmi = weight_input / ((height_input / 100) ** 2)
+                else:
+                    height_total_in = (height_ft * 12) + height_in
+                    calculated_bmi = (weight_input * 703) / (height_total_in ** 2)
+                
+                st.session_state['calculated_bmi'] = round(calculated_bmi, 1)
+        
+        with calc_col3:
+            if 'calculated_bmi' in st.session_state:
+                st.markdown("### Your BMI")
+                st.success(f"**{st.session_state['calculated_bmi']}**")
+                
+                # BMI category
+                bmi_val = st.session_state['calculated_bmi']
+                if bmi_val < 18.5:
+                    st.caption("🔵 Underweight")
+                elif bmi_val < 25:
+                    st.caption("🟢 Normal weight")
+                elif bmi_val < 30:
+                    st.caption("🟡 Overweight")
+                else:
+                    st.caption("🔴 Obese")
     
     with st.form("patient_form", clear_on_submit=False):
         form_cols = st.columns(2)
@@ -486,6 +605,10 @@ if st.session_state.mode == 'form':
                 st.markdown(f"### {info['icon']} {info['label']}")
                 
                 current_value = st.session_state.payload.get(field_key, '')
+                
+                # Use calculated BMI if available
+                if field_key == 'bmi' and 'calculated_bmi' in st.session_state and current_value == '':
+                    current_value = st.session_state['calculated_bmi']
                 
                 # Input field with help text
                 if field_key in ['age', 'bmi', 'sleep_hours']:
@@ -679,6 +802,19 @@ if len(payload) == len(FIELD_ORDER):
         label = 'High Risk ⚠️' if p >= 0.5 else 'Low Risk ✅'
         risk_class = 'risk-high' if p >= 0.5 else 'risk-low'
         
+        # Save to prediction history
+        prediction_record = {
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'risk_percentage': risk_percentage,
+            'label': label,
+            'payload': payload.copy()
+        }
+        st.session_state.prediction_history.append(prediction_record)
+        
+        # Keep only last 10 predictions
+        if len(st.session_state.prediction_history) > 10:
+            st.session_state.prediction_history = st.session_state.prediction_history[-10:]
+        
         # Animated prediction card with detailed interpretation
         st.markdown(f'<div class="{risk_class}">🩺 Prediction: {label}<br/>Risk Probability: {risk_percentage:.1f}%</div>', unsafe_allow_html=True)
         
@@ -698,7 +834,70 @@ if len(payload) == len(FIELD_ORDER):
         
         st.markdown(f'<div class="info-card">{interpretation}</div>', unsafe_allow_html=True)
         
+        # Interactive risk factors breakdown
+        st.markdown("### 🔍 Your Risk Factors Breakdown")
+        risk_factors_identified = []
+        
+        # Analyze each factor
+        if payload['age'] > 60:
+            risk_factors_identified.append(('🎂 Age', f"{payload['age']} years", "Age >60 significantly increases risk", "red"))
+        elif payload['age'] > 45:
+            risk_factors_identified.append(('🎂 Age', f"{payload['age']} years", "Age >45 moderately increases risk", "orange"))
+        else:
+            risk_factors_identified.append(('🎂 Age', f"{payload['age']} years", "Age is a protective factor", "green"))
+        
+        if payload['bmi'] >= 30:
+            risk_factors_identified.append(('⚖️ BMI', f"{payload['bmi']}", "Obese range (≥30) - high risk", "red"))
+        elif payload['bmi'] >= 25:
+            risk_factors_identified.append(('⚖️ BMI', f"{payload['bmi']}", "Overweight range (25-30) - moderate risk", "orange"))
+        else:
+            risk_factors_identified.append(('⚖️ BMI', f"{payload['bmi']}", "Healthy weight range", "green"))
+        
+        if payload['smoker'] == 1:
+            risk_factors_identified.append(('🚬 Smoking', "Yes", "Smoking increases risk by 2-4x", "red"))
+        else:
+            risk_factors_identified.append(('🚭 Smoking', "No", "Non-smoker - protective factor", "green"))
+        
+        if payload['diabetes'] == 1:
+            risk_factors_identified.append(('💉 Diabetes', "Yes", "Diabetes doubles heart disease risk", "red"))
+        else:
+            risk_factors_identified.append(('💉 Diabetes', "No", "No diabetes - protective", "green"))
+        
+        if payload['phys_activity'] == 0:
+            risk_factors_identified.append(('🏃 Exercise', "No", "Sedentary lifestyle increases risk", "red"))
+        else:
+            risk_factors_identified.append(('⚡ Exercise', "Yes", "Physical activity reduces risk", "green"))
+        
+        if payload['sleep_hours'] < 6:
+            risk_factors_identified.append(('😴 Sleep', f"{payload['sleep_hours']}h", "Insufficient sleep (<6h) increases risk", "red"))
+        elif payload['sleep_hours'] > 9:
+            risk_factors_identified.append(('😴 Sleep', f"{payload['sleep_hours']}h", "Excessive sleep (>9h) may indicate issues", "orange"))
+        else:
+            risk_factors_identified.append(('😴 Sleep', f"{payload['sleep_hours']}h", "Healthy sleep duration (7-9h)", "green"))
+        
+        if payload['gen_health'] <= 2:
+            risk_factors_identified.append(('❤️ Health', "Poor/Fair", "Self-rated poor health correlates with risk", "red"))
+        elif payload['gen_health'] == 3:
+            risk_factors_identified.append(('❤️ Health', "Good", "Average health rating", "orange"))
+        else:
+            risk_factors_identified.append(('❤️ Health', "Very Good/Excellent", "Good self-rated health", "green"))
+        
+        # Display in colored columns
+        factor_cols = st.columns(4)
+        for i, (icon_label, value, explanation, color) in enumerate(risk_factors_identified):
+            with factor_cols[i % 4]:
+                if color == "red":
+                    st.error(f"**{icon_label}**\n\n{value}")
+                    st.caption(explanation)
+                elif color == "orange":
+                    st.warning(f"**{icon_label}**\n\n{value}")
+                    st.caption(explanation)
+                else:
+                    st.success(f"**{icon_label}**\n\n{value}")
+                    st.caption(explanation)
+        
         # Enhanced probability gauge with better visuals
+        st.markdown("---")
         col_gauge, col_metrics = st.columns([2, 1])
         
         with col_gauge:
@@ -947,6 +1146,84 @@ if len(payload) == len(FIELD_ORDER):
         - 🍷 Moderate alcohol
         """)
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    # ============================================================================
+    # PREDICTION HISTORY & COMPARISON
+    # ============================================================================
+    if len(st.session_state.prediction_history) > 1:
+        st.markdown("---")
+        st.markdown("## 📊 Prediction History & Comparison")
+        
+        # Timeline visualization
+        history_df = pd.DataFrame(st.session_state.prediction_history)
+        
+        fig_timeline = go.Figure()
+        
+        # Add risk percentage line
+        fig_timeline.add_trace(go.Scatter(
+            x=list(range(len(history_df))),
+            y=history_df['risk_percentage'],
+            mode='lines+markers+text',
+            name='Risk %',
+            line=dict(color='#667eea', width=3),
+            marker=dict(size=12, color=history_df['risk_percentage'],
+                       colorscale='RdYlGn_r', showscale=True,
+                       colorbar=dict(title="Risk %")),
+            text=[f"{r:.1f}%" for r in history_df['risk_percentage']],
+            textposition='top center',
+            hovertemplate='<b>Assessment %{x}</b><br>Risk: %{y:.1f}%<extra></extra>'
+        ))
+        
+        # Add reference line at 50%
+        fig_timeline.add_hline(y=50, line_dash="dash", line_color="red", 
+                              annotation_text="High Risk Threshold (50%)",
+                              annotation_position="right")
+        
+        fig_timeline.update_layout(
+            title='📈 Risk Assessment Timeline',
+            xaxis_title='Assessment Number',
+            yaxis_title='Risk Percentage (%)',
+            height=400,
+            showlegend=False,
+            hovermode='x unified',
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        )
+        
+        st.plotly_chart(fig_timeline, use_container_width=True)
+        
+        # Comparison table
+        with st.expander("📋 View Detailed History", expanded=False):
+            comparison_data = []
+            for i, record in enumerate(st.session_state.prediction_history):
+                comparison_data.append({
+                    '#': i + 1,
+                    'Time': record['timestamp'],
+                    'Risk': f"{record['risk_percentage']:.1f}%",
+                    'Label': record['label'],
+                    'Age': record['payload']['age'],
+                    'BMI': record['payload']['bmi'],
+                    'Smoker': '✓' if record['payload']['smoker'] == 1 else '✗',
+                    'Diabetes': '✓' if record['payload']['diabetes'] == 1 else '✗',
+                })
+            
+            comparison_df = pd.DataFrame(comparison_data)
+            st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+            
+            # Show trends
+            if len(st.session_state.prediction_history) >= 2:
+                latest = st.session_state.prediction_history[-1]['risk_percentage']
+                previous = st.session_state.prediction_history[-2]['risk_percentage']
+                change = latest - previous
+                
+                if abs(change) > 5:
+                    if change < 0:
+                        st.success(f"✅ **Risk decreased by {abs(change):.1f} percentage points** compared to previous assessment!")
+                    else:
+                        st.error(f"⚠️ **Risk increased by {change:.1f} percentage points** compared to previous assessment.")
+                else:
+                    st.info("ℹ️ Risk level remained relatively stable compared to previous assessment.")
     
     # ============================================================================
     # DOWNLOAD AND SHARE
