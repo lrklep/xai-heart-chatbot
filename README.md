@@ -395,7 +395,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Authors & Acknowledgments
 
-- **Development**: XAI Heart Chatbot Team
+- **Development**: CODEBLOODED Team
 - **Research**: Based on Muneer et al. (IJACSA 2024)
 - **Technology**: Built with FastAPI, Streamlit, SHAP, LIME
 - **Dataset**: Heart disease indicators from public health data
@@ -407,7 +407,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 For issues, questions, or suggestions:
 - 🐛 Report bugs via GitHub Issues
 - 💡 Suggest features via Pull Requests
-- 📧 Contact: [your-email@example.com]
+- 📧 Contact: **will update soon**
 
 ---
 
